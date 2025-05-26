@@ -2,12 +2,15 @@ import gspread
 import os
 from datetime import datetime
 from oauth2client.service_account import ServiceAccountCredentials
-
+import base64
+import json
 # Setup
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name(
-    os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON_PATH"), scope
-)
+json_base64 = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON_BASE64")
+decoded = base64.b64decode(json_base64).decode("utf-8")
+creds_dict = json.loads(decoded)
+
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).sheet1
 
