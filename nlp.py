@@ -1,9 +1,10 @@
 import os
-import openai
 import dateparser
+import json
 from datetime import datetime
+from openai import OpenAI
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI()  # Automatically uses OPENAI_API_KEY from env
 
 def parse_command(input_text):
     prompt = f"""
@@ -21,7 +22,7 @@ User input:
 """
 
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3
@@ -30,7 +31,7 @@ User input:
         content = response.choices[0].message.content.strip()
         print("🔍 Raw OpenAI Output:", content)
 
-        parsed = eval(content)  # You can swap to json.loads() if GPT is strict JSON
+        parsed = json.loads(content)  # Use json.loads, not eval
 
         # Parse natural language due_date → YYYY-MM-DD
         raw_due = parsed.get("due_date")
