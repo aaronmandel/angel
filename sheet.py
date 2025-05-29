@@ -31,4 +31,7 @@ def get_tasks_due_today():
     from datetime import datetime
     today = datetime.today().strftime("%Y-%m-%d")
     records = sheet.get_all_records()
-    return [r for r in records if r["due_date"] == today and r["complete"] != "yes"]
+    return [r for r in records if r["due_date"] == today and r["complete"].lower() != "yes"]
+
+def get_all_tasks():
+    return sheet.get_all_records()
