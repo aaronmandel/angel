@@ -6,7 +6,7 @@ from discord.ext import commands, tasks
 from discord import app_commands
 
 from nlp import parse_command
-from sheet import add_task, mark_task_complete, get_tasks_due_today
+from sheet import add_task, mark_task_complete, get_tasks_due_today, get_all_tasks
 
 # Load environment variables
 load_dotenv()
@@ -52,18 +52,53 @@ async def view_tasks(interaction: discord.Interaction):
         formatted = "\n".join([f"• {t['name']}" for t in user_tasks])
         await interaction.followup.send(f"📋 Tasks due today:\n{formatted}")
 
-# Periodic reminder for tasks due in 2 days
+# Slash command: See all tasks
+@bot.tree.command(name="all_tasks", description="See all your tasks (due and completed)")
+async def all_tasks(interaction: discord.Interaction):
+    await interaction.response.defer()
+    rows = get_all_tasks()
+    all_user_tasks = [t for t in rows if t["user_id"] == str(interaction.user.id)]
+
+    if not all_user_tasks:
+        await interaction.followup.send("🗂️ You have no tasks recorded.")
+    else:
+        formatted = "\n".join([
+            f"• {t['name']} — Due: {t['due_date']} — ✅ Done: {t['complete']}"
+            for t in all_user_tasks
+        ])
+        await interaction.followup.send(f"🗂️ All your tasks:\n{formatted}")
+
+# Slash command: Add task due today
+@bot.tree.command(name="add_today", description="Add a task due today")
+@app_commands.describe(name="Task name due today")
+async def add_today(interaction: discord.Interaction, name: str):
+    today = datetime.today().strftime("%Y-%m-%d")
+    add_task(interaction.user.id, name, today)
+    await interaction.response.send_message(f"✅ Task '{name}' added for today!")
+
+# Periodic reminder for tasks due today and tomorrow
 @tasks.loop(hours=1)
 async def check_tasks():
-    target = (datetime.today() + timedelta(days=2)).strftime("%Y-%m-%d")
-    tasks_due = get_tasks_due_today()
-    for task in tasks_due:
-        if task["due_date"] == target:
-            try:
-                user = await bot.fetch_user(int(task["user_id"]))
-                await user.send(f"⏳ Reminder: '{task['name']}' is due in 2 days ({target})!")
-            except Exception as e:
-                print(f"Error sending reminder to user {task['user_id']}: {e}")
+    today = datetime.today().strftime("%Y-%m-%d")
+    tomorrow = (datetime.today() + timedelta(days=1)).strftime("%Y-%m-%d")
+    all_tasks = get_all_tasks()
+
+    for task in all_tasks:
+        if task["complete"].lower() == "yes":
+            continue
+
+        due_date = task["due_date"]
+        name = task["name"]
+        user_id = task["user_id"]
+
+        try:
+            user = await bot.fetch_user(int(user_id))
+            if due_date == today:
+                await user.send(f"📅 Reminder: '{name}' is **due today**!")
+            elif due_date == tomorrow:
+                await user.send(f"🔔 Heads up: '{name}' is due **tomorrow**!")
+        except Exception as e:
+            print(f"Error sending reminder to user {user_id}: {e}")
 
 # On bot ready
 @bot.event
