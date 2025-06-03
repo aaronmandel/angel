@@ -5,8 +5,6 @@ import pytz
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
-from sheet import delete_task
-
 
 from nlp import parse_command
 from sheet import (
@@ -15,6 +13,7 @@ from sheet import (
     get_tasks_due_today,
     get_all_tasks,
     edit_task,
+    delete_task,
     set_user_timezone,
     get_user_timezone,
 )
@@ -23,14 +22,14 @@ from sheet import (
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
-# Set up Discord bot
+# Setup Discord bot
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
 @bot.tree.command(name="task", description="Add or complete a task using natural language")
-@app_commands.describe(message="e.g. Add buy milk by Friday every week #urgent")
+@app_commands.describe(message="e.g. Add math review by Friday every week #school")
 async def task(interaction: discord.Interaction, message: str):
     await interaction.response.defer()
     parsed = parse_command(message)
@@ -57,25 +56,6 @@ async def task(interaction: discord.Interaction, message: str):
         await interaction.followup.send(f"✅ Marked complete: '{name}'")
     else:
         await interaction.followup.send("❌ Couldn't understand your command. Try again.")
-
-@bot.tree.command(name="delete_task", description="Delete a task by name")
-@app_commands.describe(name="The exact name of the task to delete")
-async def delete_task_cmd(interaction: discord.Interaction, name: str):
-    success = delete_task(str(interaction.user.id), name)
-    if success:
-        await interaction.response.send_message(f"🗑️ Deleted task: '{name}'")
-    else:
-        await interaction.response.send_message("❌ Task not found. Make sure the name is exactly correct.")
-
-
-@bot.tree.command(name="ping_me", description="Test if the bot can ping you")
-async def ping_me(interaction: discord.Interaction):
-    await interaction.response.send_message(f"🏓 Pong! {interaction.user.mention}", ephemeral=True)
-    try:
-        await interaction.user.send("🔔 This is a DM ping test from the bot.")
-    except Exception as e:
-        await interaction.followup.send("❌ I couldn't DM you. Make sure your privacy settings allow server messages.")
-        print(f"DM ping failed for {interaction.user.id}: {e}")
 
 
 @bot.tree.command(name="tasks", description="See your tasks due today")
@@ -104,7 +84,7 @@ async def all_tasks(interaction: discord.Interaction):
         await interaction.followup.send("🗂️ You have no tasks recorded.")
     else:
         formatted = "\n".join([
-            f"• {t['name']} — Due: {t['due_date']} — ✅ Done: {t['complete']} — 🔁 {t.get('recurrence', '')} — 🏷 {t.get('priority', '')}"
+            f"• {t['name']} — Due: {t['due_date']} — ✅ Done: {t.get('complete', 'no')} — 🔁 {t.get('recurrence', '')} — 🏷 {t.get('priority', '')}"
             for t in user_tasks
         ])
         await interaction.followup.send(f"🗂️ All your tasks:\n{formatted}")
@@ -147,6 +127,16 @@ async def edit_task_cmd(interaction: discord.Interaction, original_name: str, ne
         await interaction.response.send_message("❌ Task not found.")
 
 
+@bot.tree.command(name="delete_task", description="Delete a task by name")
+@app_commands.describe(name="The exact name of the task to delete")
+async def delete_task_cmd(interaction: discord.Interaction, name: str):
+    success = delete_task(str(interaction.user.id), name)
+    if success:
+        await interaction.response.send_message(f"🗑️ Deleted task: '{name}'")
+    else:
+        await interaction.response.send_message("❌ Task not found. Make sure the name is exactly correct.")
+
+
 @bot.tree.command(name="set_timezone", description="Set your time zone (e.g., Asia/Singapore)")
 @app_commands.describe(tz="Your time zone, e.g., Asia/Singapore")
 async def set_timezone(interaction: discord.Interaction, tz: str):
@@ -155,6 +145,16 @@ async def set_timezone(interaction: discord.Interaction, tz: str):
         return
     set_user_timezone(str(interaction.user.id), tz)
     await interaction.response.send_message(f"✅ Time zone set to `{tz}`.")
+
+
+@bot.tree.command(name="ping_me", description="Test if the bot can ping you")
+async def ping_me(interaction: discord.Interaction):
+    await interaction.response.send_message(f"🏓 Pong! {interaction.user.mention}", ephemeral=True)
+    try:
+        await interaction.user.send("🔔 This is a DM ping test from the bot.")
+    except Exception as e:
+        await interaction.followup.send("❌ I couldn't DM you. Check your privacy settings.")
+        print(f"DM error: {e}")
 
 
 @tasks.loop(hours=1)
@@ -166,12 +166,12 @@ async def check_tasks():
         if task.get("complete", "").lower() == "yes":
             continue
 
-        user_id = task["user_id"]
-        name = task["name"]
-        due_date = task["due_date"]
+        user_id = task.get("user_id", "")
+        name = task.get("name", "")
+        due_date = task.get("due_date", "")
         recurrence = task.get("recurrence", "")
         priority = task.get("priority", "")
-        
+
         try:
             tz = get_user_timezone(user_id)
             now = datetime.now(pytz.timezone(tz))
@@ -183,7 +183,6 @@ async def check_tasks():
                     users[user_id] = {"today": [], "tomorrow": []}
                 users[user_id]["today" if due_date == today else "tomorrow"].append((name, priority, recurrence, due_date))
 
-                # Auto-replicate recurring task
                 if due_date == today and recurrence in {"daily", "weekly"}:
                     next_due = datetime.strptime(due_date, "%Y-%m-%d") + (
                         timedelta(days=1) if recurrence == "daily" else timedelta(weeks=1)
@@ -193,7 +192,7 @@ async def check_tasks():
         except Exception as e:
             print(f"Reminder error for user {user_id}: {e}")
 
-    # Send digest
+    # Send daily digests
     for user_id, grouped in users.items():
         try:
             user = await bot.fetch_user(int(user_id))
@@ -213,7 +212,6 @@ async def check_tasks():
             await user.send(embed=embed)
         except Exception as e:
             print(f"Could not DM user {user_id}: {e}")
-
 
 
 @bot.event
