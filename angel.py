@@ -216,8 +216,10 @@ async def check_tasks():
 
 @bot.event
 async def on_ready():
-    synced = await bot.tree.sync()
-    print(f"🟢 Logged in as {bot.user} — Synced {len(synced)} slash commands.")
+    await bot.wait_until_ready()
+    bot.tree.copy_global_to(guild=discord.Object(id=YOUR_GUILD_ID))
+    synced = await bot.tree.sync(guild=discord.Object(id=YOUR_GUILD_ID))
+    print(f"🟢 Logged in as {bot.user} — Synced {len(synced)} commands to guild.")
     check_tasks.start()
 
 
