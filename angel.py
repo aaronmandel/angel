@@ -213,12 +213,13 @@ async def check_tasks():
         except Exception as e:
             print(f"Could not DM user {user_id}: {e}")
 
-
 @bot.event
 async def on_ready():
     await bot.wait_until_ready()
-    bot.tree.copy_global_to(guild=discord.Object(id=YOUR_GUILD_ID))
-    synced = await bot.tree.sync(guild=discord.Object(id=YOUR_GUILD_ID))
+    guild_id = 1333509206296363058  # your server ID
+    guild = discord.Object(id=guild_id)
+    bot.tree.copy_global_to(guild=guild)
+    synced = await bot.tree.sync(guild=guild)
     print(f"🟢 Logged in as {bot.user} — Synced {len(synced)} commands to guild.")
     check_tasks.start()
 
