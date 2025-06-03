@@ -216,8 +216,8 @@ async def check_tasks():
 
 @bot.event
 async def on_ready():
-    await bot.tree.sync()
-    print(f"🟢 Logged in as {bot.user}")
+    synced = await bot.tree.sync()
+    print(f"🟢 Logged in as {bot.user} — Synced {len(synced)} slash commands.")
     check_tasks.start()
 
 
