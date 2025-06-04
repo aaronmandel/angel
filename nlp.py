@@ -1,10 +1,9 @@
 import re
 import dateparser
-from datetime import datetime
 
 def parse_command(message: str) -> dict:
     message_lower = message.lower()
-    
+
     result = {
         "action": None,
         "name": None,
@@ -35,15 +34,18 @@ def parse_command(message: str) -> dict:
     if tag_match := re.search(r"#(\w+)", message):
         result["priority"] = tag_match.group(1).lower()
 
-    # Extract due date
-    parsed_date = dateparser.parse(message, settings={'PREFER_DATES_FROM': 'future'})
-    if parsed_date:
-        result["due_date"] = parsed_date.strftime("%Y-%m-%d")
+    # Extract due date phrase after 'by' or 'on' and parse it
+    due_date_phrase = None
+    if match := re.search(r"\b(?:by|on)\s+([^\s#]+(?:\s+[^\s#]+)*)", message_lower):
+        due_date_phrase = match.group(1)
+        parsed_date = dateparser.parse(due_date_phrase, settings={'PREFER_DATES_FROM': 'future'})
+        if parsed_date:
+            result["due_date"] = parsed_date.strftime("%Y-%m-%d")
 
     # Extract task name
     if result["action"] == "add":
-        # Match everything between "add ..." and "by"/"on"/recurrence/hashtag
-        name_match = re.search(r"(?:add|create|schedule)\s+(.*?)(?:\s+(by|on|every|#)\s+|$)", message_lower)
+        # Capture text after action but before 'by', 'on', 'every', '#' or end of string
+        name_match = re.search(r"(?:add|create|schedule)\s+(.*?)(?:\s+by\s+.*|\s+on\s+.*|\s+every\s+.*|#|$)", message_lower)
         if name_match:
             result["name"] = name_match.group(1).strip()
     elif result["action"] == "complete":
