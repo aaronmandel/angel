@@ -163,10 +163,16 @@ async def check_tasks():
     users = {}
 
     for task in all_tasks:
+        user_id = task.get("user_id", "").strip()
+
+        # 🔐 Prevent invalid user_id crash
+        if not user_id.isdigit():
+            print(f"⚠️ Skipping invalid user_id: '{user_id}'")
+            continue
+
         if task.get("complete", "").lower() == "yes":
             continue
 
-        user_id = task.get("user_id", "")
         name = task.get("name", "")
         due_date = task.get("due_date", "")
         recurrence = task.get("recurrence", "")
@@ -192,36 +198,24 @@ async def check_tasks():
         except Exception as e:
             print(f"Reminder error for user {user_id}: {e}")
 
-    # Send daily digests
-    for user_id, grouped in users.items():
-        try:
-            user = await bot.fetch_user(int(user_id))
-            embed = discord.Embed(title="🗓️ Task Digest", color=0x00b0f4)
-            if grouped["today"]:
-                embed.add_field(
-                    name="✅ Tasks Due Today",
-                    value="\n".join([f"• {n} {'🏷️ ' + p if p else ''}" for n, p, _, _ in grouped["today"]]),
-                    inline=False
-                )
-            if grouped["tomorrow"]:
-                embed.add_field(
-                    name="🔔 Due Tomorrow",
-                    value="\n".join([f"• {n} {'🏷️ ' + p if p else ''}" for n, p, _, _ in grouped["tomorrow"]]),
-                    inline=False
-                )
-            await user.send(embed=embed)
-        except Exception as e:
-            print(f"Could not DM user {user_id}: {e}")
 
 @bot.event
 async def on_ready():
     await bot.wait_until_ready()
-    guild_id = 1333509206296363058  # your server ID
-    guild = discord.Object(id=guild_id)
-    bot.tree.copy_global_to(guild=guild)
-    synced = await bot.tree.sync(guild=guild)
-    print(f"🟢 Logged in as {bot.user} — Synced {len(synced)} commands to guild.")
-    check_tasks.start()
+    guild = discord.Object(id=1333509206296363058)
+
+    try:
+        # Copy commands to the guild and sync
+        bot.tree.copy_global_to(guild=guild)
+        synced = await bot.tree.sync(guild=guild)
+        print(f"🟢 Logged in as {bot.user} — Synced {len(synced)} commands to guild '{guild.id}'.")
+
+        for cmd in synced:
+            print(f"↪️ /{cmd.name}: {cmd.description}")
+    except Exception as e:
+        print(f"❌ Command sync failed: {e}")
+
+    
 
 
 bot.run(DISCORD_TOKEN)

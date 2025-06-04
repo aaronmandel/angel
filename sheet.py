@@ -44,15 +44,18 @@ def set_user_timezone(user_id: str, timezone: str):
     tz_sheet.append_row([str(user_id), timezone])
 
 
-def get_user_timezone(user_id: str) -> str:
-    tz_sheet = get_timezone_sheet()
-    data = tz_sheet.get_all_records()
-
-    for row in data:
+def get_user_timezone(user_id):
+    rows = timezone_sheet.get_all_records()
+    for row in rows:
         if str(row["user_id"]) == str(user_id):
-            return row.get("timezone", "UTC")
-
+            tz = row.get("timezone", "").strip()
+            if tz in pytz.all_timezones:
+                return tz
+            else:
+                print(f"⚠️ Invalid timezone for user {user_id}: '{tz}'")
+                return "UTC"  # fallback
     return "UTC"
+
 
 
 # ------------------ Tasks ------------------
