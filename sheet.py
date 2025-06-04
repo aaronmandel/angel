@@ -1,13 +1,26 @@
-import gspread
+import os
+import json
+import base64
 import pytz
+import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 
-# Setup
+# Setup scope
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("YOUR_CREDENTIAL_FILE.json", scope)
+
+# Load creds from base64 env var
+encoded_creds = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON_BASE64")
+if not encoded_creds:
+    raise EnvironmentError("Missing GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 environment variable")
+
+decoded_creds = base64.b64decode(encoded_creds).decode("utf-8")
+service_account_info = json.loads(decoded_creds)
+creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
+
 client = gspread.authorize(creds)
 
+# Sheet names
 TIMEZONE_SHEET = "timezones"
 TASK_SHEET = "tasks"
 
@@ -55,7 +68,7 @@ def get_user_timezone(user_id):
                 return tz
             else:
                 print(f"⚠️ Invalid timezone for user {user_id}: '{tz}'")
-                return "UTC"  # fallback
+                return "UTC"
     return "UTC"
 
 
