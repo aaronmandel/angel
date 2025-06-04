@@ -45,7 +45,7 @@ def parse_command(message: str) -> dict:
     # Extract task name
     if result["action"] == "add":
         # Capture text after action but before 'by', 'on', 'every', '#' or end of string
-        name_match = re.search(r"(?:add|create|schedule)\s+(.*?)(?:\s+by\s+.*|\s+on\s+.*|\s+every\s+.*|#|$)", message_lower)
+        name_match = re.search(r"(?:add|create|schedule)\s+(.*?)(?=\s+(?:by|on|every|#)|$)", message_lower)
         if name_match:
             result["name"] = name_match.group(1).strip()
     elif result["action"] == "complete":
