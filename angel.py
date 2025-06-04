@@ -29,10 +29,12 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 
 @bot.tree.command(name="task", description="Add or complete a task using natural language")
-@app_commands.describe(message="e.g. Add math review by Friday every week #school")
+@app_commands.describe(message="e.g. add math review by Friday every week #school")
 async def task(interaction: discord.Interaction, message: str):
     await interaction.response.defer()
+
     parsed = parse_command(message)
+    print(f"🧪 Parsed result: {parsed}")  # Debug log
 
     action = parsed.get("action")
     name = parsed.get("name")
@@ -164,12 +166,10 @@ async def check_tasks():
     users = {}
 
     for task in all_tasks:
-        user_id = task.get("user_id", "").strip()
-
+        user_id = str(task.get("user_id", "")).strip()
         if not user_id.isdigit():
             print(f"⚠️ Skipping invalid user_id: '{user_id}'")
             continue
-
         if task.get("complete", "").lower() == "yes":
             continue
 
@@ -239,4 +239,5 @@ async def on_ready():
         print(f"❌ Failed to start check_tasks: {e}")
 
 
+print("Starting bot...")
 bot.run(DISCORD_TOKEN)
