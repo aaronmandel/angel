@@ -1,4 +1,5 @@
 import gspread
+import pytz
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 
@@ -45,7 +46,8 @@ def set_user_timezone(user_id: str, timezone: str):
 
 
 def get_user_timezone(user_id):
-    rows = timezone_sheet.get_all_records()
+    tz_sheet = get_timezone_sheet()
+    rows = tz_sheet.get_all_records()
     for row in rows:
         if str(row["user_id"]) == str(user_id):
             tz = row.get("timezone", "").strip()
@@ -55,7 +57,6 @@ def get_user_timezone(user_id):
                 print(f"⚠️ Invalid timezone for user {user_id}: '{tz}'")
                 return "UTC"  # fallback
     return "UTC"
-
 
 
 # ------------------ Tasks ------------------
